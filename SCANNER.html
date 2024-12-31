@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Access and QR Code Scan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        video {
+            width: 80%;
+            max-width: 500px;
+            border: 2px solid #000;
+            margin-top: 20px;
+        }
+        #error-message {
+            color: red;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        #status {
+            color: green;
+            font-size: 1.2rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Camera Viewer and QR Code Scanner</h1>
+    <p>Click the button below to start the camera:</p>
+    <button id="start-camera">Start Camera</button>
+    <div id="error-message"></div>
+    <video id="camera-feed" autoplay playsinline></video>
+    <div id="status"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script>
+        const startCameraButton = document.getElementById('start-camera');
+        const video = document.getElementById('camera-feed');
+        const errorMessage = document.getElementById('error-message');
+        const statusMessage = document.getElementById('status');
+
+        // List of valid QR codes
+        const validQRCodeList = [
+            'https://qr.io/1733691108',
+            'https://qr.io/1733692456',
+            'https://qr.io/1733737987',
+            'https://qr.io/1733737987',
+            'https://qr.io/1734105955',
+            'https://qr.io/1734453722'
+        ];
+
+        // Set to keep track of scanned QR codes
+        const scannedCodes = new Set();
+
+        startCameraButton.addEventListener('click', async () => {
+            try {
+                // Access the user's camera (specifically the back camera)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment'  // Use the back camera
+                    }
+                });
+
+                video.srcObject = stream;
+                errorMessage.textContent = ''; // Clear any error messages
+
+                // Set up a canvas to capture frames from the video feed
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                // Continuously check for QR codes
+                const detectQRCode = () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        // Get image data from canvas
+                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+                        // Decode QR code from the image data
+                        const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+                        if (code) {
+                            const qrData = code.data;
+                            console.log('QR Code found:', qrData);
+
+                            // Check if the QR code has already been scanned
+                            if (scannedCodes.has(qrData)) {
+                                statusMessage.textContent = 'This QR Code has already been scanned.';
+                                statusMessage.style.color = 'orange';
+                            } else {
+                                // If valid, add it to the set and show success
+                                if (validQRCodeList.includes(qrData)) {
+                                    statusMessage.textContent = 'Verified';
+                                    statusMessage.style.color = 'green';
+                                } else {
+                                    statusMessage.textContent = 'Invalid QR Code';
+                                    statusMessage.style.color = 'red';
+                                }
+
+                                // Mark this QR code as scanned
+                                scannedCodes.add(qrData);
+                            }
+                        }
+                    }
+
+                    // Keep scanning by calling detectQRCode every 100ms
+                    requestAnimationFrame(detectQRCode);
+                };
+
+                // Start the QR code detection
+                detectQRCode();
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                errorMessage.textContent = `Failed to access the camera: ${err.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
